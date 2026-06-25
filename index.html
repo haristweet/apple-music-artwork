@@ -130,6 +130,14 @@
           <option value="3000">3000px（最大）</option>
         </select>
       </label>
+      <label class="opt">表示件数
+        <select id="limit">
+          <option value="24" selected>24枚</option>
+          <option value="50">50枚</option>
+          <option value="100">100枚</option>
+          <option value="200">200枚（最大）</option>
+        </select>
+      </label>
     </div>
   </div>
 
@@ -183,8 +191,9 @@ async function search(){
   status.style.display = 'block';
   status.innerHTML = '<div class="spinner"></div>検索中…';
 
+  const limit = $('limit').value;
   const url = 'https://itunes.apple.com/search?'
-    + new URLSearchParams({ term:q, entity, country, limit:24 }).toString();
+    + new URLSearchParams({ term:q, entity, country, limit }).toString();
 
   try{
     const data = await jsonp(url);
