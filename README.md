@@ -1,4 +1,4 @@
-# ジャケット画像ダウンローダー
+# Album Art Downloader
 
 Apple Music / iTunes の高解像度アートワークを検索してダウンロードできる、単体HTMLの簡易Webアプリです。
 
