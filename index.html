@@ -20,7 +20,7 @@
   .wrap{max-width:1000px; margin:0 auto}
   header{text-align:center; margin-bottom:24px}
   h1{
-    font-size:26px; margin:0 0 6px;
+    font-size:clamp(20px,6vw,26px); margin:0 0 6px;
     background:linear-gradient(90deg,var(--accent),var(--accent2));
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
   }
@@ -50,7 +50,7 @@
   }
   .grid{
     display:grid; gap:16px;
-    grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    grid-template-columns:repeat(2,1fr);
   }
   .card{
     background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
@@ -233,11 +233,25 @@ function render(items, entity){
 }
 
 async function download(url, name){
-  toast('ダウンロード中…');
+  toast('準備中…');
   try{
     const res = await fetch(url, { mode:'cors' });
     if(!res.ok) throw new Error('http');
     const blob = await res.blob();
+    const file = new File([blob], name + '.jpg', { type:'image/jpeg' });
+
+    // iPhone / iPad など: 共有シートを開いて「"画像"を保存」→ 写真アプリに保存できる
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      try{
+        await navigator.share({ files:[file] });
+        return;
+      }catch(e){
+        if(e.name === 'AbortError') return; // ユーザーがキャンセル
+        // 共有不可なら下の通常ダウンロードへフォールバック
+      }
+    }
+
+    // PC など: 通常のファイルダウンロード
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name + '.jpg';
@@ -245,9 +259,9 @@ async function download(url, name){
     setTimeout(()=> URL.revokeObjectURL(a.href), 1000);
     toast('保存しました', true);
   }catch(err){
-    // CORS 等で取得できない場合は新しいタブで開く（右クリックで保存）
+    // CORS 等で取得できない場合は新しいタブで開く（長押し / 右クリックで保存）
     window.open(url, '_blank');
-    toast('別タブで開きました。画像を右クリックで保存できます');
+    toast('別タブで開きました。画像を長押し / 右クリックで保存できます');
   }
 }
 
