@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ジャケット画像ダウンローダー</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --panel2:#232733;
+    --text:#e8eaf0; --muted:#9aa0ad;
+    --accent:#fa57a0; --accent2:#7c5cff; --line:#2c313d;
+    --ok:#3ddc97; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#241a2e 0%,var(--bg) 60%);
+    color:var(--text); min-height:100vh; padding:24px 16px 60px;
+  }
+  .wrap{max-width:1000px; margin:0 auto}
+  header{text-align:center; margin-bottom:24px}
+  h1{
+    font-size:26px; margin:0 0 6px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .sub{color:var(--muted); font-size:13px}
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px; margin-bottom:20px;
+  }
+  .searchrow{display:flex; gap:10px; flex-wrap:wrap}
+  .searchrow input[type=text]{
+    flex:1; min-width:200px; padding:13px 16px; font-size:16px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); outline:none;
+  }
+  .searchrow input[type=text]:focus{border-color:var(--accent2)}
+  button.go{
+    padding:13px 22px; font-size:15px; font-weight:700; cursor:pointer;
+    border:none; border-radius:10px; color:#fff;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+  }
+  button.go:active{transform:translateY(1px)}
+  .opts{display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; align-items:center}
+  .opt{display:flex; align-items:center; gap:7px; font-size:13px; color:var(--muted)}
+  select{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:7px 10px; font-size:13px; outline:none;
+  }
+  .grid{
+    display:grid; gap:16px;
+    grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; display:flex; flex-direction:column;
+    transition:transform .12s, border-color .12s;
+  }
+  .card:hover{transform:translateY(-3px); border-color:var(--accent2)}
+  .thumb{position:relative; aspect-ratio:1/1; background:var(--panel2)}
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .badge{
+    position:absolute; right:8px; top:8px; font-size:11px; font-weight:700;
+    background:rgba(0,0,0,.6); color:#fff; padding:3px 8px; border-radius:20px;
+    backdrop-filter:blur(4px);
+  }
+  .meta{padding:11px 12px}
+  .title{font-size:13.5px; font-weight:600; line-height:1.35; margin:0 0 3px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .artist{font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .actions{display:flex; gap:6px; padding:0 12px 12px}
+  .actions button{
+    flex:1; padding:9px; font-size:12.5px; font-weight:600; cursor:pointer;
+    border:1px solid var(--line); border-radius:8px; background:var(--panel2); color:var(--text);
+  }
+  .actions button.dl{background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:#fff}
+  .actions button:active{transform:translateY(1px)}
+  .status{text-align:center; color:var(--muted); font-size:14px; padding:30px 0}
+  .spinner{
+    width:34px; height:34px; margin:0 auto 12px; border-radius:50%;
+    border:3px solid var(--line); border-top-color:var(--accent);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+    background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    padding:12px 20px; border-radius:30px; font-size:14px; opacity:0; pointer-events:none;
+    transition:opacity .25s, transform .25s; z-index:50;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  .toast.ok{border-color:var(--ok)}
+  a.hint{color:var(--accent); text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ジャケット画像ダウンローダー</h1>
+    <div class="sub">Apple Music / iTunes の高解像度アートワークを検索してダウンロード</div>
+  </header>
+
+  <div class="panel">
+    <form class="searchrow" id="form">
+      <input type="text" id="q" placeholder="アーティスト名・アルバム名・曲名を入力…" autocomplete="off">
+      <button class="go" type="submit">検索</button>
+    </form>
+    <div class="opts">
+      <label class="opt">種類
+        <select id="entity">
+          <option value="album">アルバム</option>
+          <option value="song">曲（シングル）</option>
+        </select>
+      </label>
+      <label class="opt">国
+        <select id="country">
+          <option value="JP" selected>日本</option>
+          <option value="US">アメリカ</option>
+          <option value="GB">イギリス</option>
+          <option value="KR">韓国</option>
+          <option value="TW">台湾</option>
+        </select>
+      </label>
+      <label class="opt">解像度
+        <select id="res">
+          <option value="600">600px</option>
+          <option value="1000" selected>1000px</option>
+          <option value="2000">2000px</option>
+          <option value="3000">3000px（最大）</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div id="status" class="status">検索キーワードを入力してください。</div>
+  <div id="grid" class="grid"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const grid = $('grid'), status = $('status');
+
+$('form').addEventListener('submit', e => { e.preventDefault(); search(); });
+
+let toastTimer;
+function toast(msg, ok){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (ok ? ' ok' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.className = 'toast', 2200);
+}
+
+// iTunes Search API は callback パラメータで JSONP に対応 → CORS を回避
+function jsonp(url){
+  return new Promise((resolve, reject)=>{
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    const s = document.createElement('script');
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('timeout')); }, 12000);
+    function cleanup(){ clearTimeout(timer); delete window[cb]; s.remove(); }
+    window[cb] = data => { cleanup(); resolve(data); };
+    s.onerror = () => { cleanup(); reject(new Error('network')); };
+    s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    document.body.appendChild(s);
+  });
+}
+
+// artworkUrl100 ( .../100x100bb.jpg ) を任意解像度の URL に変換
+function hires(url, size){
+  if(!url) return url;
+  return url.replace(/\/\d+x\d+(bb|cc)?\.(jpg|png)/, `/${size}x${size}bb.jpg`);
+}
+
+async function search(){
+  const q = $('q').value.trim();
+  if(!q){ toast('キーワードを入力してください'); return; }
+  const entity = $('entity').value;
+  const country = $('country').value;
+  grid.innerHTML = '';
+  status.style.display = 'block';
+  status.innerHTML = '<div class="spinner"></div>検索中…';
+
+  const url = 'https://itunes.apple.com/search?'
+    + new URLSearchParams({ term:q, entity, country, limit:24 }).toString();
+
+  try{
+    const data = await jsonp(url);
+    const items = (data.results || []).filter(r => r.artworkUrl100);
+    if(!items.length){
+      status.innerHTML = '結果が見つかりませんでした。キーワードや種類を変えてみてください。';
+      return;
+    }
+    status.style.display = 'none';
+    render(items, entity);
+  }catch(err){
+    status.innerHTML = '通信エラーが発生しました。時間をおいて再度お試しください。';
+  }
+}
+
+function render(items, entity){
+  grid.innerHTML = '';
+  items.forEach(item => {
+    const title = entity === 'song' ? (item.trackName || item.collectionName) : item.collectionName;
+    const artist = item.artistName || '';
+    const previewSrc = hires(item.artworkUrl100, 400);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="thumb">
+        <img loading="lazy" src="${previewSrc}" alt="">
+      </div>
+      <div class="meta">
+        <p class="title">${esc(title)}</p>
+        <div class="artist">${esc(artist)}</div>
+      </div>
+      <div class="actions">
+        <button class="open">開く</button>
+        <button class="dl">ダウンロード</button>
+      </div>`;
+
+    const fileBase = sanitize(`${artist} - ${title}`);
+    card.querySelector('.open').onclick = () =>
+      window.open(hires(item.artworkUrl100, $('res').value), '_blank');
+    card.querySelector('.dl').onclick = () =>
+      download(hires(item.artworkUrl100, $('res').value), fileBase);
+
+    grid.appendChild(card);
+  });
+}
+
+async function download(url, name){
+  toast('ダウンロード中…');
+  try{
+    const res = await fetch(url, { mode:'cors' });
+    if(!res.ok) throw new Error('http');
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 1000);
+    toast('保存しました', true);
+  }catch(err){
+    // CORS 等で取得できない場合は新しいタブで開く（右クリックで保存）
+    window.open(url, '_blank');
+    toast('別タブで開きました。画像を右クリックで保存できます');
+  }
+}
+
+function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function sanitize(s){ return (s||'artwork').replace(/[\\/:*?"<>|]/g,'_').slice(0,120).trim() || 'artwork'; }
+</script>
+</body>
+</html>
